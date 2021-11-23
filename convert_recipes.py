@@ -27,17 +27,19 @@ class RecipeConverter:
             files = os.listdir(self.folder)
 
             for filename in files:
-                image_file = f'{self.folder}/{filename}'
+                original_image_file = f'{self.folder}/{filename}'
                 word_file = f'{self.word_folder}/{self.get_word_file_name(filename)}'
 
                 doc = docx.Document()
-                images, image_files = self.read_images_from_file(image_file)
+                images, image_files = self.read_images_from_file(original_image_file)
                 for image in images:
                     text = self.read_text_from_image(image)
                     self.write_text_to_word_doc(doc, text)
 
                 for image_file in image_files:
                     self.write_image_to_word_doc(doc, image_file)
+                    if self.filetype_is_pdf(original_image_file):
+                        os.system(f'rm {image_file}')
                 doc.save(word_file)
 
     def read_images_from_file(self, image_file):
