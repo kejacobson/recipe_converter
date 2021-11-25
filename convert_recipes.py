@@ -39,7 +39,7 @@ class RecipeConverter:
                 for image_file in image_files:
                     self.write_image_to_word_doc(doc, image_file)
                     if self.filetype_is_pdf(original_image_file):
-                        os.system(f'rm {image_file}')
+                        os.system(f'rm "{image_file}"')
                 doc.save(word_file)
 
     def read_images_from_file(self, image_file):
@@ -75,7 +75,7 @@ class RecipeConverter:
         images = convert_from_path(image_filename)
         for i, image in enumerate(images):
             jpg_file = self.get_file_root(image_filename) +f'{i}.jpg'
-            images[0].save(jpg_file, 'JPEG')
+            image.save(jpg_file, 'JPEG')
             imgs.append(cv2.imread(jpg_file))
             image_files.append(jpg_file)
         return imgs, image_files
