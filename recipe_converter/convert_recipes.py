@@ -87,7 +87,8 @@ class RecipeConverter:
         text = pytesseract.image_to_string(image)
 
         # the function above puts a lot of extra lines in so try to reduce those
-        re.sub('\n\n', '\n', text)
+        while '\n\n' in text:
+            text = re.sub('\n\n', '\n', text)
         return text
 
     def _write_parsed_text_to_word_doc(self, doc: docx.document.Document, text: str):
