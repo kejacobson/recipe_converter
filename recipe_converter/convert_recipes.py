@@ -7,8 +7,7 @@ from PIL.Image import Image
 
 import cv2
 import pytesseract
-from docx.document import Document
-from docx.shared import Inches
+import docx
 import pdf2image
 
 
@@ -36,10 +35,14 @@ class RecipeConverter:
         1. Put images and pdfs of recipes into the `recipes_to_convert` directory
         2. Do the `run` command
         """
-        self.converter_dir_path = "~/Desktop/recipes/recipe_converter"
+        self.converter_workspace_dir = "~/Desktop/recipes/convert_images_to_doc"
         self.input_folder = 'recipes_to_convert'
         self.word_folder = 'converted_recipes'
         self._make_directory(self.word_folder)
+
+        self.valid_image_types = ['.pdf', '.jpg', '.jpeg',
+                                  '.png', '.jpe', '.bmp', '.jp2', '.tiff', '.tif']
+        self.known_extra_files = ['.DS_Store', '.gitkeep']
 
     def run(self):
         """
@@ -47,36 +50,47 @@ class RecipeConverter:
         and parses the strings out of the image files, then writes 
         docx files with the strings and images into the `converted_recipes` directory
         """
-
-        with cd(self.converter_dir_path):
-            self._remove_ds_store()
+        with cd(os.path.expanduser(self.converter_workspace_dir)):
             files_to_convert = os.listdir(self.input_folder)
 
             for filename in files_to_convert:
-                original_image_file = f'{self.input_folder}/{filename}'
-                word_file = f'{self.word_folder}/{self._make_word_file_name(filename)}'
+                if self._is_a_valid_pdf_or_image_type(filename):
+                    self._convert_image_to_word(filename)
+                else:
+                    if filename not in self.known_extra_files:
+                        print(f'Warning unable to convert {filename}. Unknown image extension')
 
-                doc = Document()
-                images, image_files = self._read_images_from_file(original_image_file)
-                self._write_text_section_of_word_doc(doc, images)
+    def _convert_image_to_word(self, filename: str):
+        original_image_file = f'{self.input_folder}/{filename}'
+        word_file = f'{self.word_folder}/{self._make_word_file_name(filename)}'
 
-                for image_file in image_files:
-                    self._write_image_to_word_doc(doc, image_file)
-                    if self._filetype_is_pdf(original_image_file):
-                        os.system(f'rm "{image_file}"')
-                doc.save(word_file)
+        doc = docx.Document()
+        images, image_files = self._read_images_from_file(original_image_file)
+        self._write_text_section_of_word_doc(doc, images)
 
-    def _write_text_section_of_word_doc(self, doc: Document, images: List[cv2.Mat]):
+        for image_file in image_files:
+            self._write_image_to_word_doc(doc, image_file)
+            if self._filetype_is_pdf(original_image_file):
+                os.system(f'rm "{image_file}"')
+        doc.save(word_file)
+
+    def _write_text_section_of_word_doc(self, doc: docx.document.Document, images: List[cv2.Mat]):
         for image in images:
             text = self._read_text_from_image(image)
             self._write_parsed_text_to_word_doc(doc, text)
 
+    def _is_a_valid_pdf_or_image_type(self, filename):
+        file_extension = os.path.splitext(filename)[-1]
+        return file_extension.lower() in self.valid_image_types
+
     def _read_text_from_image(self, image: cv2.Mat) -> str:
         text = pytesseract.image_to_string(image)
+
+        # the function above puts a lot of extra lines in so try to reduce those
         re.sub('\n\n', '\n', text)
         return text
 
-    def _write_parsed_text_to_word_doc(self, doc: Document, text: str):
+    def _write_parsed_text_to_word_doc(self, doc: docx.document.Document, text: str):
         for line in text.splitlines():
             self._make_string_xml_compatible(line)
             doc.add_paragraph(line)
@@ -93,15 +107,13 @@ class RecipeConverter:
             return [cv2.imread(image_filename)], [image_filename]
 
     def _filetype_is_pdf(self, image_file: str):
-        return '.pdf' == image_file[-4:]
-
-    def _remove_ds_store(self):
-        ds_store = f'{self.input_folder}/.DS_Store'
-        if os.path.exists(ds_store):
-            os.system(f'rm {ds_store}')
+        return '.pdf' == self._get_file_extension(image_file)
 
     def _get_file_rootname(self, file: str) -> str:
         return os.path.splitext(file)[0]
+
+    def _get_file_extension(self, file: str) -> str:
+        return os.path.splitext(file)[-1]
 
     def _make_word_file_name(self, image_file: str) -> str:
         return self._get_file_rootname(image_file) + '.docx'
@@ -125,8 +137,8 @@ class RecipeConverter:
             image_filenames.append(jpg_file)
         return cv_imgs, image_filenames
 
-    def _write_image_to_word_doc(self, doc: Document, image_path: str):
-        doc.add_picture(image_path, width=Inches(7))
+    def _write_image_to_word_doc(self, doc: docx.document.Document, image_path: str):
+        doc.add_picture(image_path, width=docx.shared.Inches(7))
 
 
 def main():
