@@ -14,7 +14,7 @@ import pdf2image
 @contextmanager
 def cd(path):
     """
-    A context manager to move to a certain directory to execute 
+    A context manager to move to a certain directory to execute
     code that will read/write files
     """
     old_dir = os.getcwd()
@@ -38,7 +38,6 @@ class RecipeConverter:
         self.converter_workspace_dir = "~/Desktop/recipes/convert_images_to_doc"
         self.input_folder = 'recipes_to_convert'
         self.word_folder = 'converted_recipes'
-        self._make_directory(self.word_folder)
 
         self.valid_image_types = ['.pdf', '.jpg', '.jpeg',
                                   '.png', '.jpe', '.bmp', '.jp2', '.tiff', '.tif']
@@ -47,10 +46,11 @@ class RecipeConverter:
     def run(self):
         """
         Finds all the image and pdf files in the `recipes_to_convert` directory
-        and parses the strings out of the image files, then writes 
+        and parses the strings out of the image files, then writes
         docx files with the strings and images into the `converted_recipes` directory
         """
         with cd(os.path.expanduser(self.converter_workspace_dir)):
+            self._make_directory(self.word_folder)
             files_to_convert = os.listdir(self.input_folder)
 
             for filename in files_to_convert:
