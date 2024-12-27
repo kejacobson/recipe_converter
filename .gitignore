@@ -1,2 +1,7 @@
 *egg-info
 *swp
+recipes
+*pyc
+__pycache__
+venv
+recipes.db

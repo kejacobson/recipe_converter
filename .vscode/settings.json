@@ -4,5 +4,9 @@
         "--max-line-length",
         "100",
         "--experimental"
+    ],
+    "black-formatter.args": [
+        "--line-length",
+        "120"
     ]
 }
