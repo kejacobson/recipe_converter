@@ -5,7 +5,8 @@ import dash_core_components as dcc
 from dash.dependencies import Input, Output, State
 import sqlite3
 
-from recipe_database.database_access import RecipeDatabaseAccesser
+from recipe_database.database_access import RecipeDatabaseAccesser, extract_text
+from recipe_database.convert_recipes import RecipeConverter
 
 
 class RecipeDatabaseGui:
@@ -17,11 +18,17 @@ class RecipeDatabaseGui:
 
         sections = []
         sections.append(html.H1("The Jacobson Recipe Database"))
+        sections.append(self._create_recipe_explorer_div())
+        sections.append(self._create_update_recipe_database_div())
+        self.full_layout = html.Div(children=sections)
+
+    def _create_recipe_explorer_div(self):
+        sections = [html.H2("Recipe Explorer")]
         sections.append(self._create_search_bar())
         sections.append(self._create_found_counter_div())
         sections.append(self._create_recipe_dropdown())
         sections.append(self._create_recipe_information_div(""))
-        self.full_layout = html.Div(children=sections)
+        return html.Div(sections)
 
     def _create_found_counter_div(self):
         return html.Div("", id="found-counter", style={"margin-top": "20px", "margin-bottom": "20px"})
@@ -52,14 +59,19 @@ class RecipeDatabaseGui:
         children.append(website)
 
         display = "block" if file_path else "none"
+        children.append(html.Br())
         children.append(self._create_word_doc_open_button(display))
         children.append(self._create_word_doc_open_status())
+        children.append(html.Br())
         children.append(self._create_word_doc_location_open_button(display))
         children.append(self._create_word_doc_location_open_status())
+        children.append(html.Br())
+
         if file_path:
             full_path = os.path.abspath(file_path)
             children.append(html.Div(f"File location: {full_path}"))
 
+        children.append(html.Br())
         children.append(html.Div(f"Tags: {tags}"))
         return html.Div(children, id="recipe-content")
 
@@ -80,6 +92,60 @@ class RecipeDatabaseGui:
             "",
             id="open-loc-status",
         )
+
+    def _create_update_recipe_database_div(self):
+        sections = [html.H2("Database update")]
+        sections.append(html.H3("Update the database's word documents"))
+        sections.append(
+            html.Div(
+                "This button will search the recipe directory for any updates to word documents in the recipe database. These updates can either be new word documents, or modifications to existing ones"
+            )
+        )
+        sections.append(html.Button("Update database's word documents", id="update-word-docs-button"))
+        sections.append(html.Div("", id="update-word-docs-status"))
+        sections.append(self._add_website_section())
+        return html.Div(sections)
+
+    def _add_website_section(self):
+        sections = []
+        sections.append(html.H3("Add a website"))
+        sections.append(
+            dcc.Input(
+                id="input-recipe-name",
+                type="text",
+                placeholder="Recipe name",
+                debounce=True,
+                style={"width": "400px", "height": "40px", "font-size": "20px"},
+            )
+        )
+        sections.append(html.Br())
+        sections.append(html.Br())
+        sections.append(
+            dcc.Input(
+                id="input-recipe-web-address",
+                type="text",
+                placeholder="Recipe web address",
+                debounce=True,
+                style={"width": "400px", "height": "40px", "font-size": "20px"},
+            )
+        )
+        sections.append(html.Br())
+        sections.append(html.Br())
+        sections.append(
+            dcc.Input(
+                id="input-recipe-tags",
+                type="text",
+                placeholder="Recipe tags",
+                debounce=True,
+                style={"width": "400px", "height": "40px", "font-size": "20px"},
+            )
+        )
+        sections.append(html.Br())
+        sections.append(html.Br())
+        sections.append(html.Button("Add website", id="add-website-button"))
+        sections.append(html.Br())
+        sections.append(html.Div("", id="website-added-status"))
+        return html.Div(sections)
 
 
 def add_call_backs(app: dash.Dash, gui: RecipeDatabaseGui):
@@ -141,7 +207,6 @@ def add_call_backs(app: dash.Dash, gui: RecipeDatabaseGui):
 
         return ""
 
-    # Callback to open the Word document when the hidden button is clicked
     @app.callback(
         Output("open-loc-status", "children"),
         Input("open-loc-button", "n_clicks"),
@@ -158,11 +223,42 @@ def add_call_backs(app: dash.Dash, gui: RecipeDatabaseGui):
 
         return ""
 
+    @app.callback(
+        Output("update-word-docs-status", "children"),
+        Input("update-word-docs-button", "n_clicks"),
+    )
+    def update_word_docs_in_database(n_clicks):
+        if n_clicks:
+            # Get the full path to the file and open it
+            gui.db_access.update_database()
+            recipes = gui.db_access.get_list_of_recipe_names_filtered_by_search_term("recipes.db", "")
+            return f"Updated database. {len(recipes)} found."
+
+        return ""
+
+    @app.callback(
+        Output("website-added-status", "children"),
+        Input("add-website-button", "n_clicks"),
+        State("input-recipe-name", "value"),
+        State("input-recipe-web-address", "value"),
+        State("input-recipe-tags", "value"),
+    )
+    def add_website_to_database(n_clicks, recipe_name, web_address, tags):
+        if n_clicks:
+            converter = RecipeConverter()
+            filename = converter.convert_a_website(recipe_name, web_address)
+            text = extract_text(filename)
+
+            gui.db_access.add_recipe(recipe_name, text, filename, web_address, tags)
+            return f"Added {recipe_name} to database"
+
+        return ""
+
 
 if __name__ == "__main__":
 
     gui = RecipeDatabaseGui()
     app = dash.Dash(__name__)
-    add_call_backs(app, gui)
     app.layout = gui.full_layout
+    add_call_backs(app, gui)
     app.run_server(debug=True)
