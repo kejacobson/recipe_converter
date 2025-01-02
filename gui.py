@@ -151,6 +151,7 @@ class RecipeDatabaseGui:
         sections.append(html.Button("Update database's word documents", id="update-word-docs-button"))
         sections.append(html.Div("", id="update-word-docs-status"))
         sections.append(self._add_website_section())
+        sections.append(self._add_converter_section())
         return html.Div(sections)
 
     def _add_website_section(self):
@@ -198,6 +199,13 @@ class RecipeDatabaseGui:
         file_path, _, _ = self.db_access.get_recipe_details(recipe_name)
         if file_path:
             os.remove(file_path)
+
+    def _add_converter_section(self):
+        sections = []
+        sections.append(html.H1("Recipe Converter"))
+        sections.append(html.Button("Convert Images and PDFs in recipes_to_convert", id="convert-recipes-button"))
+        sections.append(html.Div("", id="convert-recipes-status"))
+        return html.Div(sections)
 
 
 def add_call_backs(app: dash.Dash, gui: RecipeDatabaseGui):
@@ -330,6 +338,19 @@ def add_call_backs(app: dash.Dash, gui: RecipeDatabaseGui):
             gui.db_access.delete_recipe(recipe_name)
             gui.delete_recipe_word_doc(recipe_name)
             return f"Deleted {recipe_name} from database"
+        return ""
+
+    @app.callback(
+        Output("convert-recipes-status", "children"),
+        Input("convert-recipes-button", "n_clicks"),
+    )
+    def convert_recipes(n_clicks):
+        if n_clicks:
+            converter = RecipeConverter()
+            converter.run()
+            gui.db_access.update_database("converted_recipes")
+            return "Converted recipes"
+
         return ""
 
 

@@ -4,7 +4,7 @@ import os
 import time
 from contextlib import contextmanager
 from typing import List
-from PIL.Image import Image
+from PIL import Image
 from selenium import webdriver
 from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.chrome.options import Options
@@ -39,7 +39,7 @@ class RecipeConverter:
         1. Put images and pdfs of recipes into the `recipes_to_convert` directory
         2. Do the `run` command
         """
-        self.converter_workspace_dir = "~/Desktop/recipes/convert_images_to_doc"
+        self.converter_workspace_dir = "~/Desktop/recipe_converter"
         self.input_folder = "recipes_to_convert"
         self.word_folder = "converted_recipes"
 
@@ -86,12 +86,13 @@ class RecipeConverter:
         file_extension = os.path.splitext(filename)[-1]
         return file_extension.lower() in self.valid_image_types
 
-    def _read_text_from_image(self, image: cv2.Mat) -> str:
+    def _read_text_from_image(self, image):
+        image_rgb = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)  # Convert BGR to RGB
+        image = Image.fromarray(image_rgb)  # Convert to PIL Image
+        max_size = (2000, 2000)
+        if image.size[0] > max_size[0] or image.size[1] > max_size[1]:
+            image.thumbnail(max_size)
         text = pytesseract.image_to_string(image)
-
-        # the function above puts a lot of extra lines in so try to reduce those
-        while "\n\n" in text:
-            text = re.sub("\n\n", "\n", text)
         return text
 
     def _write_parsed_text_to_word_doc(self, doc: docx.document.Document, text: str):
