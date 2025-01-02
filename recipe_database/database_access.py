@@ -162,3 +162,24 @@ class RecipeDatabaseAccesser:
             text = extract_text(doc)
             name = get_file_name_from_path(doc).split(".")[0]
             self.add_recipe(name, text, doc)
+
+    def update_tags(self, recipe_name, tags):
+        conn = sqlite3.connect(self.db)
+        cursor = conn.cursor()
+        cursor.execute(
+            """
+                UPDATE recipes
+                SET tags = ?
+                WHERE name = ?
+                """,
+            (tags, recipe_name),
+        )
+        conn.commit()
+        conn.close()
+
+    def delete_recipe(self, recipe_name):
+        conn = sqlite3.connect(self.db)
+        cursor = conn.cursor()
+        cursor.execute("DELETE FROM recipes WHERE name=?", (recipe_name,))
+        conn.commit()
+        conn.close()

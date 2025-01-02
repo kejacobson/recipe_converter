@@ -3,7 +3,6 @@ import dash
 import dash_html_components as html
 import dash_core_components as dcc
 from dash.dependencies import Input, Output, State
-import sqlite3
 
 from recipe_database.database_access import RecipeDatabaseAccesser, extract_text
 from recipe_database.convert_recipes import RecipeConverter
@@ -18,9 +17,10 @@ class RecipeDatabaseGui:
 
         sections = []
         sections.append(html.H1("The Jacobson Recipe Database"))
+        sections.append(html.Img(src=f"/assets/header_image.png", style={"width": "400px"}))
         sections.append(self._create_recipe_explorer_div())
         sections.append(self._create_update_recipe_database_div())
-        self.full_layout = html.Div(children=sections)
+        self.full_layout = html.Div(children=sections, style={"backgroundColor": "#eff2eb"})
 
     def _create_recipe_explorer_div(self):
         sections = [html.H2("Recipe Explorer")]
@@ -50,11 +50,56 @@ class RecipeDatabaseGui:
             style={"width": "400px", "font-size": "16px"},
         )
 
+    def _create_recipe_modification_div(self, recipe_name):
+        children = []
+        file_path, web_address, tags = self.db_access.get_recipe_details(recipe_name)
+
+        display = "block" if file_path else "none"
+        children.append(html.H2("Modify this recipe"))
+        children.append(self._add_tag_field_and_button(display))
+        children.append(self._create_add_tag_status())
+        children.append(html.Br())
+        children.append(self._create_delete_entry_button(display))
+        children.append(self._create_delete_entry_status())
+        children.append(html.Br())
+        return html.Div(children)
+
+    def _add_tag_field_and_button(self, display):
+        children = []
+        children.append(html.Div("Add tags to the recipe", style={"display": display}))
+        children.append(
+            dcc.Input(
+                id="input-add_recipe-tags",
+                type="text",
+                placeholder="Recipe tags",
+                debounce=True,
+                style={"width": "400px", "height": "40px", "font-size": "20px", "display": display},
+            )
+        )
+        children.append(html.Button("Add tags", id="add-tags-button", style={"display": display}))
+        return html.Div(children)
+
+    def _create_add_tag_status(self):
+        return html.Div(
+            "",
+            id="add-tags-status",
+        )
+
+    def _create_delete_entry_button(self, display):
+        return html.Button("Delete This Recipe", id="delete-entry-button", style={"display": display, "color": "red"})
+
+    def _create_delete_entry_status(self):
+        return html.Div(
+            "",
+            id="delete-entry-status",
+        )
+
     def _create_recipe_information_div(self, recipe_name):
         children = []
         file_path, web_address, tags = self.db_access.get_recipe_details(recipe_name)
 
         display = "block" if web_address else "none"
+        children.append(html.Br())
         website = html.A("View Recipe Online", href=web_address, target="_blank", style={"display": display})
         children.append(website)
 
@@ -73,6 +118,8 @@ class RecipeDatabaseGui:
 
         children.append(html.Br())
         children.append(html.Div(f"Tags: {tags}"))
+
+        children.append(self._create_recipe_modification_div(recipe_name))
         return html.Div(children, id="recipe-content")
 
     def _create_word_doc_open_button(self, display):
@@ -146,6 +193,11 @@ class RecipeDatabaseGui:
         sections.append(html.Br())
         sections.append(html.Div("", id="website-added-status"))
         return html.Div(sections)
+
+    def delete_recipe_word_doc(self, recipe_name):
+        file_path, _, _ = self.db_access.get_recipe_details(recipe_name)
+        if file_path:
+            os.remove(file_path)
 
 
 def add_call_backs(app: dash.Dash, gui: RecipeDatabaseGui):
@@ -252,6 +304,32 @@ def add_call_backs(app: dash.Dash, gui: RecipeDatabaseGui):
             gui.db_access.add_recipe(recipe_name, text, filename, web_address, tags)
             return f"Added {recipe_name} to database"
 
+        return ""
+
+    @app.callback(
+        Output("add-tags-status", "children"),
+        Input("add-tags-button", "n_clicks"),
+        State(gui.recipe_dropdown_id, "value"),
+        State("input-add_recipe-tags", "value"),
+    )
+    def add_tags_to_recipe(n_clicks, recipe_name, tags):
+        if n_clicks:
+            _, _, original_tags = gui.db_access.get_recipe_details(recipe_name)
+            gui.db_access.update_tags(recipe_name, original_tags + ", " + tags)
+            return f"Added tags to {recipe_name}"
+
+        return ""
+
+    @app.callback(
+        Output("delete-entry-status", "children"),
+        Input("delete-entry-button", "n_clicks"),
+        State(gui.recipe_dropdown_id, "value"),
+    )
+    def delete_recipe(n_clicks, recipe_name):
+        if n_clicks:
+            gui.db_access.delete_recipe(recipe_name)
+            gui.delete_recipe_word_doc(recipe_name)
+            return f"Deleted {recipe_name} from database"
         return ""
 
 
